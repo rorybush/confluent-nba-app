@@ -1,0 +1,20 @@
+{
+  "name": "confluent-nba-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^14.18.63",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "node-rdkafka": "^3.0.1"
+  }
+}
