@@ -1,88 +1,63 @@
-import { Producer } from "node-rdkafka";
-import { KafkaConfig } from "../config/KafkaConfig";
+import {
+  Producer,
+  Message,
+  DeliveryReport,
+} from "@confluentinc/kafka-javascript";
+import { KafkaConfig, readConfigFile } from "../config/KafkaConfig";
 import { NBAGameScore } from "./types";
 
 export class KafkaProducer {
   private producer: Producer;
-  private connected: boolean = false;
+  private ready: boolean = false;
 
-  constructor(config: KafkaConfig) {
+  constructor(configFile: string) {
+    const kafkaConfig: KafkaConfig = readConfigFile(configFile);
+
     this.producer = new Producer({
-      "metadata.broker.list": config["bootstrap.servers"],
-      "security.protocol": config["security.protocol"],
-      "sasl.mechanisms": config["sasl.mechanisms"],
-      "sasl.username": config["sasl.username"],
-      "sasl.password": config["sasl.password"],
+      "bootstrap.servers": kafkaConfig["bootstrap.servers"],
+      // ...other configurations
+    });
+
+    this.producer.on("ready", () => {
+      this.ready = true;
+      console.log("Producer is ready");
     });
 
     this.producer.on("event.error", (err) => {
-      console.error("Error from producer:", err);
+      console.error("Error from producer", err);
     });
 
-    this.producer.on("delivery-report", (err, report) => {
-      if (err) {
-        console.error("Error in delivery report:", err);
-        return;
-      }
-      console.log("Delivery report:", report);
-    });
-
-    this.producer.setPollInterval(100);
+    this.producer.connect();
   }
 
-  public connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.producer.connect({}, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          this.connected = true;
-          resolve();
-        }
-      });
-    });
+  public isReady(): boolean {
+    return this.ready;
   }
 
-  public disconnect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.producer.disconnect((err) => {
-        if (err) {
-          reject(err);
-        } else {
-          this.connected = false;
-          resolve();
-        }
-      });
-    });
-  }
-
-  public async produce(topic: string, message: NBAGameScore): Promise<void> {
-    if (!this.connected) {
-      throw new Error("You must connect the producer before sending messages.");
+  public produceMessage(topic: string, message: NBAGameScore): void {
+    if (!this.isReady()) {
+      console.warn("Tried to produce a message before the producer is ready");
+      return;
     }
 
-    return new Promise((resolve, reject) => {
-      try {
-        this.producer.produce(
-          topic,
-          null,
-          Buffer.from(JSON.stringify(message)),
-          message.gameId,
-          Date.now(),
-          (err: LibrdKafkaError | null, offset: number) => {
-            if (err) {
-              reject(err);
-            } else {
-              console.log(`Message delivered to partition ${offset}`);
-              resolve();
-            }
-          }
-        );
-      } catch (err) {
-        reject(err);
+    const valueBuffer = Buffer.from(JSON.stringify(message));
+    this.producer.produce(
+      topic,
+      null,
+      valueBuffer,
+      message.gameId,
+      Date.now(),
+      (err: any, deliveryReport: any) => {
+        if (err) {
+          console.error("Error producing", err);
+        } else {
+          console.log("Message delivered", deliveryReport);
+        }
       }
+    );
+  }
 
-      this.producer.poll();
-    });
+  public disconnect(): void {
+    this.producer.disconnect();
   }
 }

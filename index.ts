@@ -1,15 +1,25 @@
-import { readConfigFile } from "./config/KafkaConfig";
 import { KafkaProducer } from "./kafka/KafkaProducer";
 import { fetchNBAScores } from "./api/NBAApi";
 
 async function main() {
-  const config = readConfigFile("client.properties");
-  const producer = new KafkaProducer(config);
-  producer.connect();
+  const producer = new KafkaProducer("path/to/your/client.properties");
 
-  const scores = await fetchNBAScores();
-  scores.forEach((score) => {
-    producer.produce("nba-scores", score);
+  try {
+    const scores = await fetchNBAScores();
+    scores.forEach((score) => {
+      if (producer.isReady()) {
+        producer.produceMessage("nba-scores", score);
+      } else {
+        console.log("Producer not ready yet. Waiting...");
+      }
+    });
+  } catch (error) {
+    console.error("Failed to fetch NBA scores or produce messages", error);
+  }
+
+  process.on("SIGINT", () => {
+    producer.disconnect();
+    process.exit();
   });
 }
 
