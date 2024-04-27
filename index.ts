@@ -6,6 +6,7 @@ async function main() {
 
   try {
     const scores = await fetchNBAScores();
+    console.log(scores, "scores");
     scores.forEach((score) => {
       if (producer.isReady()) {
         producer.produceMessage("nba-scores", score);
