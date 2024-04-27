@@ -1,12 +1,11 @@
 import { KafkaProducer } from "./kafka/KafkaProducer";
-import { fetchNBAScores } from "./api/NBAApi";
+import { fetchNBAScores } from "./api/NBA-Api";
 
 async function main() {
-  const producer = new KafkaProducer("path/to/your/client.properties");
+  const producer = new KafkaProducer("client.properties");
 
   try {
     const scores = await fetchNBAScores();
-    console.log(scores, "scores");
     scores.forEach((score) => {
       if (producer.isReady()) {
         producer.produceMessage("nba-scores", score);
